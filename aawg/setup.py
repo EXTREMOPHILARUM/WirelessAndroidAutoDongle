@@ -10,7 +10,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'aawgd = aawg.src.aawgd:main'
+            'aawgd = aawg.aawgd:main'
         ]
     }
 )
