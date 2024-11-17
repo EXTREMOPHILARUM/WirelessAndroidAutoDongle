@@ -7,7 +7,7 @@ RUN apt-get purge -q -y snapd lxcfs lxd ubuntu-core-launcher snap-confine
 RUN apt-get -q -y install file wget cpio rsync locales \
 		build-essential libncurses5-dev python3-setuptools \
 		python3-dev python3-pip python3-dbus python3-gi \
-		python3-protobuf \
+		python3-protobuf protobuf-compiler \
 		git bzr cvs mercurial subversion libc6 unzip bc \
 		vim
 RUN apt-get -q -y autoremove && apt-get -q -y clean
