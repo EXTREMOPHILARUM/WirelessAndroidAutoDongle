@@ -5,8 +5,9 @@ setup(
     version='1.0',
     packages=find_packages(),
     install_requires=[
-        # 'python-dbus',
-        'protobuf'
+        'dbus-python',  # python-dbus
+        'PyGObject',    # python-gobject
+        'protobuf'      # python-protobuf
     ],
     entry_points={
         'console_scripts': [
