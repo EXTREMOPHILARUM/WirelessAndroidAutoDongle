@@ -8,33 +8,63 @@ services:
       - .:/app
       - dl:/app/buildroot/dl
       - output:/app/buildroot/output
+      - ccache:/root/.ccache
     working_dir: /app/buildroot
     command: bash
+    environment:
+      - CCACHE_DIR=/root/.ccache
+      - BR2_CCACHE=y
+      - BR2_CCACHE_DIR=/root/.ccache
+      - BR2_JLEVEL=8
   
   generate_image_donotuse: &generate_image
     <<: *base
-    command: bash -x -c "make BR2_EXTERNAL=../aa_wireless_dongle/ O=output/$${BOARD_NAME} $${BOARD_NAME}_defconfig && cd output/$${BOARD_NAME} && make && mkdir -p /app/images/ && cp images/sdcard.img /app/images/sdcard-$${BOARD_NAME}.img"
+    command: bash -x -c "make BR2_EXTERNAL=../aa_wireless_dongle/ O=output/$${BOARD_NAME} $${BOARD_NAME}_defconfig && 
+      cd output/$${BOARD_NAME} && 
+      echo 'BR2_CCACHE=y' >> .config && 
+      echo 'BR2_CCACHE_DIR=\"/root/.ccache\"' >> .config && 
+      echo 'BR2_JLEVEL=8' >> .config && 
+      make && 
+      mkdir -p /app/images/ && 
+      cp images/sdcard.img /app/images/sdcard-$${BOARD_NAME}.img"
   
   rpi0w:
     <<: *generate_image
     environment:
       - BOARD_NAME=raspberrypi0w
+      - CCACHE_DIR=/root/.ccache
+      - BR2_CCACHE=y
+      - BR2_CCACHE_DIR=/root/.ccache
+      - BR2_JLEVEL=8
 
   rpi02w:
     <<: *generate_image
     environment:
       - BOARD_NAME=raspberrypizero2w
+      - CCACHE_DIR=/root/.ccache
+      - BR2_CCACHE=y
+      - BR2_CCACHE_DIR=/root/.ccache
+      - BR2_JLEVEL=8
   
   rpi3a:
     <<: *generate_image
     environment:
       - BOARD_NAME=raspberrypi3a
+      - CCACHE_DIR=/root/.ccache
+      - BR2_CCACHE=y
+      - BR2_CCACHE_DIR=/root/.ccache
+      - BR2_JLEVEL=8
 
   rpi4:
     <<: *generate_image
     environment:
       - BOARD_NAME=raspberrypi4
+      - CCACHE_DIR=/root/.ccache
+      - BR2_CCACHE=y
+      - BR2_CCACHE_DIR=/root/.ccache
+      - BR2_JLEVEL=8
 
 volumes:
   dl:
   output:
+  ccache:
