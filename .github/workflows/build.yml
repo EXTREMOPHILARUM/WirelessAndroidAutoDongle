@@ -3,6 +3,11 @@ name: Build Workflow
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'aa_wireless_dongle/**'
+      - '.github/workflows/**'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -16,6 +21,7 @@ on:
         - python
         - full
         - all
+        default: 'base'
       board:
         description: 'Select board (only for base/full builds)'
         required: false
@@ -30,9 +36,8 @@ on:
 jobs:
   build-base:
     if: |
-      github.event_name != 'workflow_dispatch' ||
-      github.event.inputs.build_type == 'base' ||
-      github.event.inputs.build_type == 'all'
+      (github.event_name != 'workflow_dispatch' && (github.event_name == 'push' || github.event_name == 'pull_request')) ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.build_type == 'base' || github.event.inputs.build_type == 'all'))
     strategy:
       matrix:
         defconfig:
@@ -71,9 +76,8 @@ jobs:
 
   build-python:
     if: |
-      github.event_name != 'workflow_dispatch' ||
-      github.event.inputs.build_type == 'python' ||
-      github.event.inputs.build_type == 'all'
+      (github.event_name != 'workflow_dispatch' && (github.event_name == 'push' || github.event_name == 'pull_request')) ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.build_type == 'python' || github.event.inputs.build_type == 'all'))
     runs-on: ubuntu-latest
 
     steps:
@@ -100,9 +104,8 @@ jobs:
 
   build-full:
     if: |
-      github.event_name != 'workflow_dispatch' ||
-      github.event.inputs.build_type == 'full' ||
-      github.event.inputs.build_type == 'all'
+      (github.event_name != 'workflow_dispatch' && (github.event_name == 'push' || github.event_name == 'pull_request')) ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.build_type == 'full' || github.event.inputs.build_type == 'all'))
     strategy:
       matrix:
         defconfig:
@@ -138,7 +141,11 @@ jobs:
         path: ./buildroot/output/images/full-${{ matrix.defconfig }}-sdcard.img.xz
 
   merge-artifacts:
-    if: always()
+    if: |
+      success() && (
+        github.event_name != 'workflow_dispatch' ||
+        github.event.inputs.build_type == 'all'
+      )
     needs: [build-base, build-python, build-full]
     runs-on: ubuntu-latest
     steps:
