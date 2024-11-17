@@ -5,7 +5,7 @@ setup(
     version='1.0',
     packages=find_packages(),
     install_requires=[
-        'python-dbus',
+        # 'python-dbus',
         'protobuf'
     ],
     entry_points={
