@@ -1,0 +1,88 @@
+name: Combine Latest Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: 'Select board'
+        required: true
+        type: choice
+        options:
+        - raspberrypizero2w
+        - raspberrypi0w
+        - raspberrypi4
+        - raspberrypi3a
+        default: 'raspberrypizero2w'
+
+jobs:
+  combine:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    # Download latest base image
+    - uses: dawidd6/action-download-artifact@v3
+      with:
+        workflow: base-build.yml
+        name: base-${{ github.event.inputs.board }}
+        path: base-image
+        search_artifacts: true
+        if_no_artifact_found: fail
+
+    # Download latest Python package
+    - uses: dawidd6/action-download-artifact@v3
+      with:
+        workflow: python-build.yml
+        name: python-package
+        path: python-pkg
+        search_artifacts: true
+        if_no_artifact_found: fail
+
+    # Setup build environment
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xz-utils
+
+    # Extract base image
+    - name: Extract base image
+      run: |
+        cd base-image
+        xz -d base-${{ github.event.inputs.board }}-sdcard.img.xz
+
+    # Mount and modify image
+    - name: Setup loop device
+      run: |
+        LOOP_DEVICE=$(sudo losetup -f)
+        sudo losetup -P $LOOP_DEVICE base-image/base-${{ github.event.inputs.board }}-sdcard.img
+        echo "LOOP_DEVICE=$LOOP_DEVICE" >> $GITHUB_ENV
+
+    - name: Mount image
+      run: |
+        sudo mkdir -p /mnt/image
+        sudo mount ${LOOP_DEVICE}p2 /mnt/image
+
+    # Install Python package
+    - name: Install Python package
+      run: |
+        sudo cp python-pkg/*.whl /mnt/image/usr/lib/python3/dist-packages/
+        sudo chroot /mnt/image /bin/bash -c "python3 -m pip install /usr/lib/python3/dist-packages/*.whl"
+
+    # Cleanup
+    - name: Unmount and cleanup
+      run: |
+        sudo umount /mnt/image
+        sudo losetup -d $LOOP_DEVICE
+
+    # Compress final image
+    - name: Compress combined image
+      run: |
+        xz -c base-image/base-${{ github.event.inputs.board }}-sdcard.img > combined-${{ github.event.inputs.board }}-sdcard.img.xz
+
+    # Upload combined artifact
+    - uses: actions/upload-artifact@v4
+      with:
+        name: combined-${{ github.event.inputs.board }}
+        path: combined-${{ github.event.inputs.board }}-sdcard.img.xz
