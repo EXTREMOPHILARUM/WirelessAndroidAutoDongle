@@ -1,4 +1,4 @@
-name: Makefile CI
+name: Build Workflow
 
 on:
   workflow_dispatch:
@@ -8,7 +8,72 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  build-base:
+    strategy:
+      matrix:
+        defconfig:
+        # - raspberrypi0w
+        - raspberrypizero2w
+        # - raspberrypi4
+        # - raspberrypi3a
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
+
+    - name: Setup base config
+      run: |
+        make BR2_EXTERNAL=../aa_wireless_dongle/ ${{ matrix.defconfig }}_defconfig
+        echo '# BR2_PACKAGE_AAWG is not set' >> .config
+      working-directory: ./buildroot
+
+    - name: Build base system
+      run: make
+      working-directory: ./buildroot
+
+    - name: Compress base image
+      run: xz -c sdcard.img > base-${{ matrix.defconfig }}-sdcard.img.xz
+      working-directory: ./buildroot/output/images
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: base-${{ matrix.defconfig }}
+        path: ./buildroot/output/images/base-${{ matrix.defconfig }}-sdcard.img.xz
+
+  build-python:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
+        python3 -m pip install --user build
+
+    - name: Build Python package
+      run: |
+        cd aa_wireless_dongle/package/aawg/src
+        protoc --python_out=. --proto_path=proto proto/*.proto
+        python3 -m build --wheel --outdir ./dist/
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: python-package
+        path: aa_wireless_dongle/package/aawg/src/dist/*.whl
+
+  build-full:
     strategy:
       matrix:
         defconfig:
@@ -33,23 +98,24 @@ jobs:
       run: make BR2_EXTERNAL=../aa_wireless_dongle/ ${{ matrix.defconfig }}_defconfig
       working-directory: ./buildroot
 
-    - name: Build
+    - name: Build full image
       run: make
       working-directory: ./buildroot
 
-    - name: Compress sdcard.img
-      run: xz -c sdcard.img > ${{ matrix.defconfig }}-sdcard.img.xz
+    - name: Compress full image
+      run: xz -c sdcard.img > full-${{ matrix.defconfig }}-sdcard.img.xz
       working-directory: ./buildroot/output/images
 
     - uses: actions/upload-artifact@v4
       with:
-        name: WirelessAndroidAutoDongle-${{ matrix.defconfig }}
-        path: ./buildroot/output/images/${{ matrix.defconfig }}-sdcard.img.xz
-  
-  merge:
+        name: full-${{ matrix.defconfig }}
+        path: ./buildroot/output/images/full-${{ matrix.defconfig }}-sdcard.img.xz
+
+  merge-artifacts:
+    needs: [build-base, build-python, build-full]
     runs-on: ubuntu-latest
-    needs: build
     steps:
       - uses: actions/upload-artifact/merge@v4
         with:
           name: WirelessAndroidAutoDongle-all
+          pattern: "{base,full}-*-sdcard.img.xz,*.whl"

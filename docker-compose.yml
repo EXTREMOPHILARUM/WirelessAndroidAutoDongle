@@ -17,7 +17,30 @@ services:
       - BR2_CCACHE_DIR=/root/.ccache
       - BR2_JLEVEL=8
   
-  generate_image_donotuse: &generate_image
+  # Base system image build without Python package
+  build_base_image: &build_base
+    <<: *base
+    command: bash -x -c "make BR2_EXTERNAL=../aa_wireless_dongle/ O=output/$${BOARD_NAME} $${BOARD_NAME}_defconfig && 
+      cd output/$${BOARD_NAME} && 
+      echo 'BR2_CCACHE=y' >> .config && 
+      echo 'BR2_CCACHE_DIR=\"/root/.ccache\"' >> .config && 
+      echo 'BR2_JLEVEL=8' >> .config && 
+      echo '# BR2_PACKAGE_AAWG is not set' >> .config && 
+      make && 
+      mkdir -p /app/images/ && 
+      cp images/sdcard.img /app/images/base-$${BOARD_NAME}.img"
+
+  # Python package build only
+  build_python: &build_python
+    <<: *base
+    working_dir: /app/aa_wireless_dongle/package/aawg/src
+    command: bash -x -c "
+      python3 -m pip install --user build && 
+      protoc --python_out=. --proto_path=proto proto/*.proto && 
+      python3 -m build --wheel --outdir /app/images/python_pkg/"
+
+  # Full image build including Python package
+  build_full_image: &build_full
     <<: *base
     command: bash -x -c "make BR2_EXTERNAL=../aa_wireless_dongle/ O=output/$${BOARD_NAME} $${BOARD_NAME}_defconfig && 
       cd output/$${BOARD_NAME} && 
@@ -26,39 +49,25 @@ services:
       echo 'BR2_JLEVEL=8' >> .config && 
       make && 
       mkdir -p /app/images/ && 
-      cp images/sdcard.img /app/images/sdcard-$${BOARD_NAME}.img"
-  
-  rpi0w:
-    <<: *generate_image
-    environment:
-      - BOARD_NAME=raspberrypi0w
-      - CCACHE_DIR=/root/.ccache
-      - BR2_CCACHE=y
-      - BR2_CCACHE_DIR=/root/.ccache
-      - BR2_JLEVEL=8
+      cp images/sdcard.img /app/images/full-$${BOARD_NAME}.img"
 
-  rpi02w:
-    <<: *generate_image
+  # Board-specific configurations
+  rpi02w_base:
+    <<: *build_base
     environment:
       - BOARD_NAME=raspberrypizero2w
       - CCACHE_DIR=/root/.ccache
       - BR2_CCACHE=y
       - BR2_CCACHE_DIR=/root/.ccache
       - BR2_JLEVEL=8
-  
-  rpi3a:
-    <<: *generate_image
-    environment:
-      - BOARD_NAME=raspberrypi3a
-      - CCACHE_DIR=/root/.ccache
-      - BR2_CCACHE=y
-      - BR2_CCACHE_DIR=/root/.ccache
-      - BR2_JLEVEL=8
 
-  rpi4:
-    <<: *generate_image
+  rpi02w_python:
+    <<: *build_python
+
+  rpi02w_full:
+    <<: *build_full
     environment:
-      - BOARD_NAME=raspberrypi4
+      - BOARD_NAME=raspberrypizero2w
       - CCACHE_DIR=/root/.ccache
       - BR2_CCACHE=y
       - BR2_CCACHE_DIR=/root/.ccache
