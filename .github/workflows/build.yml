@@ -1,21 +1,42 @@
 name: Build Workflow
 
 on:
-  workflow_dispatch:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Select what to build'
+        required: true
+        type: choice
+        options:
+        - base
+        - python
+        - full
+        - all
+      board:
+        description: 'Select board (only for base/full builds)'
+        required: false
+        type: choice
+        options:
+        - raspberrypizero2w
+        - raspberrypi0w
+        - raspberrypi4
+        - raspberrypi3a
+        default: 'raspberrypizero2w'
 
 jobs:
   build-base:
+    if: |
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.build_type == 'base' ||
+      github.event.inputs.build_type == 'all'
     strategy:
       matrix:
         defconfig:
-        # - raspberrypi0w
-        - raspberrypizero2w
-        # - raspberrypi4
-        # - raspberrypi3a
+          - ${{ github.event.inputs.board || 'raspberrypizero2w' }}
 
     runs-on: ubuntu-latest
 
@@ -49,6 +70,10 @@ jobs:
         path: ./buildroot/output/images/base-${{ matrix.defconfig }}-sdcard.img.xz
 
   build-python:
+    if: |
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.build_type == 'python' ||
+      github.event.inputs.build_type == 'all'
     runs-on: ubuntu-latest
 
     steps:
@@ -74,13 +99,14 @@ jobs:
         path: aa_wireless_dongle/package/aawg/src/dist/*.whl
 
   build-full:
+    if: |
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.build_type == 'full' ||
+      github.event.inputs.build_type == 'all'
     strategy:
       matrix:
         defconfig:
-        # - raspberrypi0w
-        - raspberrypizero2w
-        # - raspberrypi4
-        # - raspberrypi3a
+          - ${{ github.event.inputs.board || 'raspberrypizero2w' }}
 
     runs-on: ubuntu-latest
 
@@ -112,6 +138,7 @@ jobs:
         path: ./buildroot/output/images/full-${{ matrix.defconfig }}-sdcard.img.xz
 
   merge-artifacts:
+    if: always()
     needs: [build-base, build-python, build-full]
     runs-on: ubuntu-latest
     steps:
