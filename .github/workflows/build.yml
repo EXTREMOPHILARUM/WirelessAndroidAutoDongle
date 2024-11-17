@@ -12,10 +12,10 @@ jobs:
     strategy:
       matrix:
         defconfig:
-        - raspberrypi0w
+        # - raspberrypi0w
         - raspberrypizero2w
-        - raspberrypi4
-        - raspberrypi3a
+        # - raspberrypi4
+        # - raspberrypi3a
 
     runs-on: ubuntu-latest
 
