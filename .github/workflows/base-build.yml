@@ -1,0 +1,58 @@
+name: Base System Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: 'Select board'
+        required: true
+        type: choice
+        options:
+        - raspberrypizero2w
+        - raspberrypi0w
+        - raspberrypi4
+        - raspberrypi3a
+        default: 'raspberrypizero2w'
+  push:
+    paths:
+      - 'buildroot/**'
+      - 'aa_wireless_dongle/board/**'
+      - 'aa_wireless_dongle/configs/**'
+      - '.github/workflows/base-build.yml'
+
+jobs:
+  build-base:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        defconfig:
+          - ${{ github.event.inputs.board || 'raspberrypizero2w' }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
+
+    - name: Setup base config
+      run: |
+        make BR2_EXTERNAL=../aa_wireless_dongle/ ${{ matrix.defconfig }}_defconfig
+        echo '# BR2_PACKAGE_AAWG is not set' >> .config
+      working-directory: ./buildroot
+
+    - name: Build base system
+      run: make
+      working-directory: ./buildroot
+
+    - name: Compress base image
+      run: xz -c sdcard.img > base-${{ matrix.defconfig }}-sdcard.img.xz
+      working-directory: ./buildroot/output/images
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: base-${{ matrix.defconfig }}
+        path: ./buildroot/output/images/base-${{ matrix.defconfig }}-sdcard.img.xz

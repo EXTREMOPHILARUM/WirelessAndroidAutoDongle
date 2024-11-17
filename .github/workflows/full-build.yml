@@ -1,0 +1,50 @@
+name: Full System Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: 'Select board'
+        required: true
+        type: choice
+        options:
+        - raspberrypizero2w
+        - raspberrypi0w
+        - raspberrypi4
+        - raspberrypi3a
+        default: 'raspberrypizero2w'
+
+jobs:
+  build-full:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        defconfig:
+          - ${{ github.event.inputs.board }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
+
+    - name: Setup config
+      run: make BR2_EXTERNAL=../aa_wireless_dongle/ ${{ matrix.defconfig }}_defconfig
+      working-directory: ./buildroot
+
+    - name: Build full system
+      run: make
+      working-directory: ./buildroot
+
+    - name: Compress full image
+      run: xz -c sdcard.img > full-${{ matrix.defconfig }}-sdcard.img.xz
+      working-directory: ./buildroot/output/images
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: full-${{ matrix.defconfig }}
+        path: ./buildroot/output/images/full-${{ matrix.defconfig }}-sdcard.img.xz
