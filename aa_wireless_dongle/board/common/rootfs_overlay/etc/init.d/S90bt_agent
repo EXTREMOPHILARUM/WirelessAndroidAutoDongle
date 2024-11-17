@@ -1,30 +1,53 @@
-#!/bin/sh
-#
-# Register bluetooth agent for non-interactive connection
-#
+#!/usr/bin/env python3
 
-DAEMON="bt-agent"
-PIDFILE="/var/run/$DAEMON.pid"
+import sys
+import subprocess
+import os
 
+DAEMON = "bt-agent"
+PIDFILE = f"/var/run/{DAEMON}.pid"
 
-RETVAL=0
+def start():
+    print(f"Starting {DAEMON}: ", end='', flush=True)
+    try:
+        # Start the daemon
+        subprocess.run([
+            "start-stop-daemon",
+            "-S", "-b", "-q", "-m",
+            "-p", PIDFILE,
+            "-x", f"/usr/bin/{DAEMON}",
+            "--",
+            "--capability=NoInputNoOutput"
+        ], check=True)
+        print("OK")
+        return 0
+    except subprocess.CalledProcessError:
+        print("FAIL")
+        return 1
 
-case "$1" in
-	start)
-		printf "Starting $DAEMON: "
-		start-stop-daemon -S -b -q -m -p "$PIDFILE" -x "/usr/bin/$DAEMON" -- --capability=NoInputNoOutput
-		RETVAL=$?
-		[ $RETVAL = 0 ] && echo "OK" || echo "FAIL"
-		;;
-	stop)
-		printf "Stopping $DAEMON: "
-		start-stop-daemon -K -q -p "$PIDFILE"
-		RETVAL=$?
-		[ $RETVAL = 0 ] && echo "OK" || echo "FAIL"
-		;;
-	*)
-		echo "Usage: $0 {start|stop}"
-		;;
-esac
+def stop():
+    print(f"Stopping {DAEMON}: ", end='', flush=True)
+    try:
+        subprocess.run([
+            "start-stop-daemon",
+            "-K", "-q",
+            "-p", PIDFILE
+        ], check=True)
+        print("OK")
+        return 0
+    except subprocess.CalledProcessError:
+        print("FAIL")
+        return 1
 
-exit $RETVAL
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] not in ["start", "stop"]:
+        print(f"Usage: {sys.argv[0]} {{start|stop}}")
+        return 1
+
+    if sys.argv[1] == "start":
+        return start()
+    else:  # stop
+        return stop()
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,17 +1,33 @@
-#!/bin/sh
-#
-# Setup persistent storage
-#
+#!/usr/bin/env python3
 
-case "$1" in
-	start)
-		echo "Setup persistent storage..."
-		mkdir -p /persist/seedrng
-		mkdir -p /persist/bluetooth
-		;;
-	*)
-		echo "Usage: $0 {start}"
-		exit 1
-esac
+import sys
+from pathlib import Path
 
-exit $?
+def setup_persist():
+    """Setup persistent storage directories"""
+    print("Setup persistent storage...")
+    
+    # Create required directories
+    persist_dirs = [
+        Path("/persist/seedrng"),
+        Path("/persist/bluetooth")
+    ]
+    
+    for directory in persist_dirs:
+        directory.mkdir(parents=True, exist_ok=True)
+    
+    return 0
+
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] != "start":
+        print(f"Usage: {sys.argv[0]} {{start}}")
+        return 1
+    
+    try:
+        return setup_persist()
+    except Exception as e:
+        print(f"Error setting up persistent storage: {e}")
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())

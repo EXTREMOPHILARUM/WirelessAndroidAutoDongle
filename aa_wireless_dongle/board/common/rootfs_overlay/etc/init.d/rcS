@@ -1,33 +1,87 @@
-#!/bin/sh
+#!/usr/bin/env python3
 
-# Log everything to /var/log/messages
-exec 1> >(logger -s -p INFO -t console 2>&1)
-exec 2> >(logger -s -p WARNING -t console)
+import os
+import sys
+import glob
+import subprocess
+import logging
+import logging.handlers
+from pathlib import Path
+import importlib.util
 
-# Source aawgd configuration environment variables
-source /etc/aawgd.conf.sh
-export AAWG_CONF_SOURCED=1
+def setup_logging():
+    """Setup logging to /var/log/messages"""
+    syslog = logging.handlers.SysLogHandler(address='/dev/log')
+    syslog.setFormatter(logging.Formatter('console: %(message)s'))
+    
+    # Setup root logger
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(syslog)
+    
+    # Redirect stdout and stderr to logger
+    sys.stdout = LoggerWriter(logging.INFO)
+    sys.stderr = LoggerWriter(logging.WARNING)
 
-# Start all init scripts in /etc/init.d
-# executing them in numerical order.
-#
-for i in /etc/init.d/S??* ;do
+class LoggerWriter:
+    """Helper class to redirect stdout/stderr to logger"""
+    def __init__(self, level):
+        self.level = level
+        self.buffer = []
+    
+    def write(self, message):
+        if message.strip():
+            logging.log(self.level, message.strip())
+    
+    def flush(self):
+        pass
 
-     # Ignore dangling symlinks (if any).
-     [ ! -f "$i" ] && continue
+def load_config():
+    """Load AAWG configuration"""
+    config_path = Path("/etc/aawgd.conf.py")
+    if config_path.exists():
+        try:
+            spec = importlib.util.spec_from_file_location("aawgd_conf", config_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            os.environ["AAWG_CONF_SOURCED"] = "1"
+            return True
+        except Exception as e:
+            logging.error(f"Error loading configuration: {e}")
+    return False
 
-     case "$i" in
-        *.sh)
-            # Source shell script for speed.
-            (
-                trap - INT QUIT TSTP
-                set start
-                . $i
-            )
-            ;;
-        *)
-            # No sh extension, so fork subprocess.
-            $i start
-            ;;
-    esac
-done
+def run_init_scripts():
+    """Run all init scripts in numerical order"""
+    init_scripts = sorted(glob.glob("/etc/init.d/S[0-9][0-9]*"))
+    
+    for script in init_scripts:
+        # Skip if not a file
+        if not os.path.isfile(script):
+            continue
+        
+        try:
+            # Make script executable if it isn't already
+            os.chmod(script, os.stat(script).st_mode | 0o111)
+            
+            # Execute the script with 'start' argument
+            subprocess.run([script, "start"], check=True)
+            
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Error running {script}: {e}")
+        except Exception as e:
+            logging.error(f"Unexpected error with {script}: {e}")
+
+def main():
+    # Setup logging first
+    setup_logging()
+    
+    # Load AAWG configuration
+    load_config()
+    
+    # Run init scripts
+    run_init_scripts()
+    
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

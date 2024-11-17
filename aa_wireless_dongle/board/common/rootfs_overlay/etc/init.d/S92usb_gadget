@@ -1,109 +1,143 @@
-#!/bin/sh
-#
-# Configure USB gadget interfaces
-#
+#!/usr/bin/env python3
 
-SERIAL_NUMBER="0123456"
-MANUFACTURER="My Own"
-PRODUCT="AA Wireless Dongle"
+import os
+import sys
+import time
+import subprocess
+from pathlib import Path
 
-ACCESSORY_GADGET_NAME="accessory"
-DEFAULT_GADGET_NAME="default"
+# Configuration
+SERIAL_NUMBER = "0123456"
+MANUFACTURER = "My Own"
+PRODUCT = "AA Wireless Dongle"
 
-FUNCTIONFS_PATH=/dev/ffs-mtp
-DAEMON=umtprd
-PIDFILE="/var/run/$DAEMON.pid"
+ACCESSORY_GADGET_NAME = "accessory"
+DEFAULT_GADGET_NAME = "default"
 
-RETVAL=0
+FUNCTIONFS_PATH = "/dev/ffs-mtp"
+DAEMON = "umtprd"
+PIDFILE = f"/var/run/{DAEMON}.pid"
 
-start() {
-	printf "Setting up usb_gadgets: "
-	mountpoint -q /sys/kernel/config || mount -t configfs none /sys/kernel/config
+CONFIG_PATH = Path("/sys/kernel/config")
+GADGET_PATH = CONFIG_PATH / "usb_gadget"
 
-	# Setup accessory config
-	cd /sys/kernel/config/usb_gadget
-	if [ ! -d "$ACCESSORY_GADGET_NAME" ]; then
-		mkdir "$ACCESSORY_GADGET_NAME"
-		cd "$ACCESSORY_GADGET_NAME"
-		echo "0x18D1" > idVendor
-		echo "0x2D00" > idProduct
-		mkdir strings/0x409
-		echo "$SERIAL_NUMBER" > strings/0x409/serialnumber
-		echo "$MANUFACTURER" > strings/0x409/manufacturer
-		echo "$PRODUCT" > strings/0x409/product
-		mkdir functions/accessory.usb0
-		mkdir configs/c.1
-		echo 500 > configs/c.1/MaxPower
-		ln -s functions/accessory.usb0 configs/c.1
-	fi
+def run_command(cmd, check=True):
+    """Run a command and return its success status"""
+    try:
+        subprocess.run(cmd, check=check)
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
-	# Setup default config
-	cd /sys/kernel/config/usb_gadget
-	if [ ! -d "$DEFAULT_GADGET_NAME" ]; then
-		mkdir "$DEFAULT_GADGET_NAME"
-		cd "$DEFAULT_GADGET_NAME"
-		echo "0x18D1" > idVendor
-		echo "0x4EE1" > idProduct
-		mkdir strings/0x409
-		echo "$SERIAL_NUMBER" > strings/0x409/serialnumber
-		echo "$MANUFACTURER" > strings/0x409/manufacturer
-		echo "$PRODUCT" > strings/0x409/product
-		mkdir functions/ffs.mtp
-		mkdir configs/c.1
-		echo 500 > configs/c.1/MaxPower
-		ln -s functions/ffs.mtp configs/c.1
-	fi
+def setup_gadget(name, vendor_id, product_id):
+    """Set up a USB gadget with given parameters"""
+    gadget_dir = GADGET_PATH / name
+    if not gadget_dir.exists():
+        gadget_dir.mkdir(exist_ok=True)
+        
+        # Set IDs
+        (gadget_dir / "idVendor").write_text(vendor_id + "\n")
+        (gadget_dir / "idProduct").write_text(product_id + "\n")
+        
+        # Create and populate strings
+        strings_dir = gadget_dir / "strings/0x409"
+        strings_dir.mkdir(parents=True, exist_ok=True)
+        (strings_dir / "serialnumber").write_text(SERIAL_NUMBER + "\n")
+        (strings_dir / "manufacturer").write_text(MANUFACTURER + "\n")
+        (strings_dir / "product").write_text(PRODUCT + "\n")
+        
+        # Create functions
+        if name == ACCESSORY_GADGET_NAME:
+            (gadget_dir / "functions/accessory.usb0").mkdir(parents=True, exist_ok=True)
+            function_name = "accessory.usb0"
+        else:
+            (gadget_dir / "functions/ffs.mtp").mkdir(parents=True, exist_ok=True)
+            function_name = "ffs.mtp"
+        
+        # Create and set up configs
+        config_dir = gadget_dir / "configs/c.1"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        (config_dir / "MaxPower").write_text("500\n")
+        
+        # Create symlink
+        (config_dir / function_name).symlink_to(gadget_dir / "functions" / function_name)
 
-	# Setting up usb_gadget:
-	echo "OK"
+def start():
+    print("Setting up usb_gadgets: ", end='', flush=True)
+    
+    # Mount configfs if needed
+    if not run_command(["mountpoint", "-q", str(CONFIG_PATH)]):
+        run_command(["mount", "-t", "configfs", "none", str(CONFIG_PATH)])
+    
+    # Setup accessory gadget
+    setup_gadget(ACCESSORY_GADGET_NAME, "0x18D1", "0x2D00")
+    
+    # Setup default gadget
+    setup_gadget(DEFAULT_GADGET_NAME, "0x18D1", "0x4EE1")
+    
+    print("OK")
+    
+    # Start MTP daemon
+    print(f"Starting {DAEMON}: ", end='', flush=True)
+    
+    functionfs = Path(FUNCTIONFS_PATH)
+    if not functionfs.exists():
+        functionfs.mkdir(parents=True, exist_ok=True)
+    
+    run_command(["mount", "-t", "functionfs", "mtp", str(functionfs)])
+    
+    success = run_command([
+        "start-stop-daemon",
+        "-S", "-b", "-q", "-m",
+        "-p", PIDFILE,
+        "-x", f"/usr/sbin/{DAEMON}"
+    ])
+    
+    time.sleep(1)
+    print("OK" if success else "FAIL")
+    return 0 if success else 1
 
-	printf "Starting $DAEMON: "
-	if [ ! -f "$FUNCTIONFS_PATH" ]; then
-		mkdir "$FUNCTIONFS_PATH"
-	fi
-	mount -t functionfs mtp "$FUNCTIONFS_PATH"
-	start-stop-daemon -S -b -q -m -p "$PIDFILE" -x "/usr/sbin/$DAEMON"
-	RETVAL=$?
-	sleep 1
-	[ $RETVAL = 0 ] && echo "OK" || echo "FAIL"
-}
+def stop():
+    print("Disable usb_gadgets: ", end='', flush=True)
+    
+    # Disable gadgets
+    for name in [ACCESSORY_GADGET_NAME, DEFAULT_GADGET_NAME]:
+        udc_file = GADGET_PATH / name / "UDC"
+        if udc_file.exists():
+            udc_file.write_text("\n")
+    
+    print("OK")
+    
+    # Stop MTP daemon
+    print(f"Stopping {DAEMON}: ", end='', flush=True)
+    
+    success = run_command([
+        "start-stop-daemon",
+        "-K", "-q", "-s", "9",
+        "-p", PIDFILE
+    ])
+    
+    functionfs = Path(FUNCTIONFS_PATH)
+    if functionfs.exists():
+        run_command(["umount", str(functionfs)])
+        functionfs.rmdir()
+    
+    print("OK" if success else "FAIL")
+    return 0 if success else 1
 
-stop() {
-	printf "Disable usb_gadgets: "
-	cd /sys/kernel/config/usb_gadget
-	echo "" > "$ACCESSORY_GADGET_NAME"/UDC
-	echo "" > "$DEFAULT_GADGET_NAME"/UDC
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] not in ["start", "stop", "restart"]:
+        print(f"Usage: {sys.argv[0]} {{start|stop|restart}}")
+        return 1
+    
+    if sys.argv[1] == "start":
+        return start()
+    elif sys.argv[1] == "stop":
+        return stop()
+    else:  # restart
+        stop()
+        time.sleep(1)
+        return start()
 
-	# Disable usb_gadget:
-	echo "OK"
-
-	printf "Stopping $DAEMON: "
-	start-stop-daemon -K -q -s 9 -p "$PIDFILE"
-	RETVAL=$?
-	umount "$FUNCTIONFS_PATH"
-	rm -r "$FUNCTIONFS_PATH"
-	[ $RETVAL = 0 ] && echo "OK" || echo "FAIL"
-}
-
-restart() {
-	stop
-	sleep 1
-	start
-}
-
-case "$1" in
-	start)
-		start
-		;;
-	stop)
-		stop
-		;;
-	restart)
-		restart
-		;;
-	*)
-		echo "Usage: $0 {start|stop|restart}"
-		;;
-esac
-
-exit $RETVAL
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,17 +1,30 @@
-#!/bin/sh
-#
-# Load kernel modules
-#
+#!/usr/bin/env python3
 
-case "$1" in
-	start)
-		echo "Loading kernel modules..."
-		modprobe -a brcmfmac hci_uart # Wireless drivers
-		modprobe -a dwc2 libcomposite # USB gadget drivers
-		;;
-	*)
-		echo "Usage: $0 {start}"
-		exit 1
-esac
+import sys
+import subprocess
 
-exit $?
+def load_modules():
+    """Load required kernel modules"""
+    print("Loading kernel modules...")
+    
+    # Load wireless drivers
+    subprocess.run(["modprobe", "-a", "brcmfmac", "hci_uart"], check=True)
+    
+    # Load USB gadget drivers
+    subprocess.run(["modprobe", "-a", "dwc2", "libcomposite"], check=True)
+    
+    return 0
+
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] != "start":
+        print(f"Usage: {sys.argv[0]} {{start}}")
+        return 1
+    
+    try:
+        return load_modules()
+    except subprocess.CalledProcessError as e:
+        print(f"Error loading modules: {e}")
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())

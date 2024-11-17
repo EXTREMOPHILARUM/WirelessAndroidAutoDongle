@@ -1,39 +1,77 @@
-#!/bin/sh
-#
-# Start aawgd daemon
-#
+#!/usr/bin/env python3
 
-DAEMON="aawgd"
-PIDFILE="/var/run/$DAEMON.pid"
+import sys
+import subprocess
+import importlib.util
+from pathlib import Path
 
+DAEMON = "python3"
+DAEMON_ARGS = "-m aawgd"
+PIDFILE = "/var/run/aawgd.pid"
 
-RETVAL=0
+def load_config():
+    """Load the AAWG configuration"""
+    config_path = Path("/etc/aawgd.conf.py")
+    if config_path.exists():
+        print("Loading /etc/aawgd.conf.py")
+        try:
+            spec = importlib.util.spec_from_file_location("aawgd_conf", config_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return True
+        except Exception as e:
+            print(f"Error loading configuration: {e}")
+            return False
+    return False
 
-case "$1" in
-	start)
-		if [ -z "$AAWG_CONF_SOURCED" ]; then
-			echo "Source /etc/aawgd.conf.sh"
-			source /etc/aawgd.conf.sh
-		fi
+def start():
+    """Start the AAWG daemon"""
+    if not load_config():
+        return 1
 
-		printf "Starting $DAEMON: "
-		start-stop-daemon -S -b -q -m -p "$PIDFILE" -x "/usr/bin/$DAEMON"
-		RETVAL=$?
-		[ $RETVAL = 0 ] && echo "OK" || echo "FAIL"
-		;;
-	stop)
-		printf "Stopping $DAEMON: "
-		start-stop-daemon -K -q -p "$PIDFILE"
-		RETVAL=$?
-		[ $RETVAL = 0 ] && echo "OK" || echo "FAIL"
-		;;
-	restart)
-		$0 stop
-		$0 start
-		;;
-	*)
-		echo "Usage: $0 {start|stop}"
-		;;
-esac
+    print("Starting aawgd: ", end='', flush=True)
+    try:
+        subprocess.run([
+            "start-stop-daemon",
+            "-S", "-b", "-q", "-m",
+            "-p", PIDFILE,
+            "-x", DAEMON,
+            "--",
+            *DAEMON_ARGS.split()
+        ], check=True)
+        print("OK")
+        return 0
+    except subprocess.CalledProcessError:
+        print("FAIL")
+        return 1
 
-exit $RETVAL
+def stop():
+    """Stop the AAWG daemon"""
+    print("Stopping aawgd: ", end='', flush=True)
+    try:
+        subprocess.run([
+            "start-stop-daemon",
+            "-K", "-q",
+            "-p", PIDFILE
+        ], check=True)
+        print("OK")
+        return 0
+    except subprocess.CalledProcessError:
+        print("FAIL")
+        return 1
+
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] not in ["start", "stop", "restart"]:
+        print(f"Usage: {sys.argv[0]} {{start|stop|restart}}")
+        return 1
+
+    if sys.argv[1] == "start":
+        return start()
+    elif sys.argv[1] == "stop":
+        return stop()
+    else:  # restart
+        stop()
+        return start()
+
+if __name__ == "__main__":
+    sys.exit(main())
