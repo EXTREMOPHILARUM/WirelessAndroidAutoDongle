@@ -3,11 +3,11 @@ import time
 import signal
 from typing import Optional
 
-from common import Logger, Config, ConnectionStrategy
-from bluetoothHandler import BluetoothHandler
-from proxyHandler import ProxyHandler
-from usb import UsbHandler
-from uevent import UeventHandler
+from aawg.common import Logger, Config, ConnectionStrategy
+from aawg.bluetoothHandler import BluetoothHandler
+from aawg.proxyHandler import ProxyHandler
+from aawg.usb import UsbHandler
+from aawg.uevent import UeventHandler
 
 class AAWG:
     def __init__(self):
