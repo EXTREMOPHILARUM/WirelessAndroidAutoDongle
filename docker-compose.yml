@@ -8,32 +8,26 @@ services:
       - .:/app
       - dl:/app/buildroot/dl
       - output:/app/buildroot/output
-      - ccache:/root/.ccache
     working_dir: /app/buildroot
     command: bash
     environment:
-      - CCACHE_DIR=/root/.ccache
-      - BR2_CCACHE=y
-      - BR2_CCACHE_DIR=/root/.ccache
-      - BR2_JLEVEL=8
+      - BR2_JLEVEL=16
   
   # Base system image build without Python package
   build_base_image: &build_base
     <<: *base
     command: bash -x -c "make BR2_EXTERNAL=../aa_wireless_dongle/ O=output/$${BOARD_NAME} $${BOARD_NAME}_defconfig && 
       cd output/$${BOARD_NAME} && 
-      echo 'BR2_CCACHE=y' >> .config && 
-      echo 'BR2_CCACHE_DIR=\"/root/.ccache\"' >> .config && 
-      echo 'BR2_JLEVEL=8' >> .config && 
+      echo 'BR2_JLEVEL=16' >> .config && 
       echo '# BR2_PACKAGE_AAWG is not set' >> .config && 
-      make && 
+      make -j\$(nproc) && 
       mkdir -p /app/images/ && 
       cp images/sdcard.img /app/images/base-$${BOARD_NAME}.img"
 
   # Python package build only
   build_python: &build_python
     <<: *base
-    working_dir: /app/aa_wireless_dongle/package/aawg/src
+    working_dir: /app/aawg
     command: bash -x -c "
       python3 -m pip install --user build && 
       protoc --python_out=. --proto_path=proto proto/*.proto && 
@@ -44,10 +38,8 @@ services:
     <<: *base
     command: bash -x -c "make BR2_EXTERNAL=../aa_wireless_dongle/ O=output/$${BOARD_NAME} $${BOARD_NAME}_defconfig && 
       cd output/$${BOARD_NAME} && 
-      echo 'BR2_CCACHE=y' >> .config && 
-      echo 'BR2_CCACHE_DIR=\"/root/.ccache\"' >> .config && 
-      echo 'BR2_JLEVEL=8' >> .config && 
-      make && 
+      echo 'BR2_JLEVEL=16' >> .config && 
+      make -j\$(nproc) && 
       mkdir -p /app/images/ && 
       cp images/sdcard.img /app/images/full-$${BOARD_NAME}.img"
 
@@ -56,11 +48,19 @@ services:
     <<: *build_base
     environment:
       - BOARD_NAME=raspberrypizero2w
-      - CCACHE_DIR=/root/.ccache
-      - BR2_CCACHE=y
-      - BR2_CCACHE_DIR=/root/.ccache
-      - BR2_JLEVEL=8
+      - BR2_JLEVEL=16
 
+  rpi02w_python:
+    <<: *build_python
+
+  rpi02w_full:
+    <<: *build_full
+    environment:
+      - BOARD_NAME=raspberrypizero2w
+      - BR2_JLEVEL=16
+
+volumes:
+  dl:
   rpi02w_python:
     <<: *build_python
 
@@ -71,7 +71,7 @@ services:
       - CCACHE_DIR=/root/.ccache
       - BR2_CCACHE=y
       - BR2_CCACHE_DIR=/root/.ccache
-      - BR2_JLEVEL=8
+      - BR2_JLEVEL=16
 
 volumes:
   dl:

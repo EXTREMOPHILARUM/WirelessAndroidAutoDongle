@@ -6,7 +6,7 @@ PI_USER="${PI_USER:-root}"
 PI_PASS="${PI_PASS:-password}"
 
 # Source directory (Python implementation)
-SRC_DIR="aa_wireless_dongle/package/aawg/src"
+SRC_DIR="aawg"
 
 # Check if source directory exists
 if [ ! -d "$SRC_DIR" ]; then

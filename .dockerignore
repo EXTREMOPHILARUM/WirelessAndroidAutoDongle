@@ -1,0 +1,48 @@
+# Version control
+.git
+.gitignore
+.gitmodules
+
+# Build outputs
+buildroot/output
+buildroot/dl
+images/
+*.img
+*.whl
+*.taree
+*.gz
+*.xz
+*.zip
+
+# Development files
+**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Docker
+.docker
+docker-compose*.yml
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Build directories
+buildroot/build
+**/build/
+
+# Documentation
+*.md
+LICENSE
+*.txt
+
+# Temporary files
+*.log
+*.tmp
+*.temp
+.DS_Store

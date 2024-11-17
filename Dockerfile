@@ -10,19 +10,12 @@ RUN apt-get -q update && \
         python3-dev python3-pip python3-dbus python3-gi \
         python3-protobuf protobuf-compiler \
         git bzr cvs mercurial subversion libc6 unzip bc \
-        vim ccache && \
+        vim && \
     apt-get -q -y autoremove && \
     apt-get -q -y clean && \
     update-locale LC_ALL=C
 
-# Configure ccache
-RUN mkdir -p /root/.ccache && \
-    echo "max_size = 50.0G" > /root/.ccache/ccache.conf && \
-    echo "compression = true" >> /root/.ccache/ccache.conf && \
-    echo "compression_level = 1" >> /root/.ccache/ccache.conf
-
 VOLUME /app/buildroot/dl
 VOLUME /app/buildroot/output
-VOLUME /root/.ccache
 
 CMD /bin/bash

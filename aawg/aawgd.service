@@ -1,15 +1,13 @@
 [Unit]
 Description=Android Auto Wireless Gateway Daemon
-After=bluetooth.service network.target
+After=bluetooth.service
 Wants=bluetooth.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 -m aawgd
+ExecStart=/usr/local/bin/aawgd
 Restart=always
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target

@@ -5,7 +5,7 @@
 ################################################################################
 
 AAWG_VERSION = 1.0
-AAWG_SITE = $(BR2_EXTERNAL_AA_WIRELESS_DONGLE_PATH)/package/aawg/src
+AAWG_SITE = $(BR2_EXTERNAL_AA_WIRELESS_DONGLE_PATH)/aawg
 AAWG_SITE_METHOD = local
 AAWG_SETUP_TYPE = setuptools
 AAWG_DEPENDENCIES = python3 python-dbus python-gobject python-protobuf host-python-protobuf
