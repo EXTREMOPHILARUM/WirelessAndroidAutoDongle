@@ -1,0 +1,14 @@
+#!/usr/bin/python3
+
+import os
+import sys
+
+# Change to the module directory
+os.chdir('/usr/local/lib/aawgd')
+
+# Run the module directly
+with open('aawgd.py') as f:
+    code = compile(f.read(), 'aawgd.py', 'exec')
+    namespace = {}
+    exec(code, namespace)
+    sys.exit(namespace['main']())

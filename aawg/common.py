@@ -1,5 +1,6 @@
 import os
 import logging
+import logging.handlers  # Add this import
 import syslog
 from enum import Enum, IntEnum
 from typing import Optional, Dict, Any

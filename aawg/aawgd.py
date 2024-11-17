@@ -3,11 +3,11 @@ import time
 import signal
 from typing import Optional
 
-from aawg.common import Logger, Config, ConnectionStrategy
-from aawg.bluetoothHandler import BluetoothHandler
-from aawg.proxyHandler import ProxyHandler
-from aawg.usb import UsbHandler
-from aawg.uevent import UeventHandler
+from common import Logger, Config, ConnectionStrategy
+from bluetoothHandler import BluetoothHandler
+from proxyHandler import ProxyHandler
+from usb import UsbHandler
+from uevent import UeventHandler
 
 class AAWG:
     def __init__(self):
@@ -41,8 +41,9 @@ class AAWG:
                 self.logger.info("Waiting for accessory to connect first")
                 self.usb_handler.enable_default_and_wait_for_accessory()
                 
-            proxy_thread = self.proxy_handler.start_server(
-                Config.instance().get_wifi_info()["port"])
+            # Get WifiInfo object and access port attribute directly
+            wifi_info = Config.instance().get_wifi_info()
+            proxy_thread = self.proxy_handler.start_server(wifi_info.port)
                 
             if not proxy_thread:
                 return 1
