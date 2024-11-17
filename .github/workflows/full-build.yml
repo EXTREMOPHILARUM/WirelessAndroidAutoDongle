@@ -30,7 +30,8 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y protobuf-compiler
+        sudo apt-get install -y protobuf-compiler python3-protobuf
+        pip3 install protobuf
 
     - name: Setup config
       run: make BR2_EXTERNAL=../aa_wireless_dongle/ ${{ matrix.defconfig }}_defconfig
